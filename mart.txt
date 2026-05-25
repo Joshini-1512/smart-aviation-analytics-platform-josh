@@ -1,0 +1,45 @@
+USE WAREHOUSE AVIATION_WH;
+USE DATABASE AVIATION_DB;
+USE SCHEMA MART;
+
+--dynamic table
+
+CREATE OR REPLACE DYNAMIC TABLE DT_REVENUE
+TARGET_LAG = '5 minutes'
+WAREHOUSE = AVIATION_WH
+AS
+SELECT
+    f.airlineName,
+    SUM(b.bookingAmount) AS total_revenue,
+    COUNT(b.bookingId) AS total_bookings
+FROM CORE.FACT_BOOKING b
+JOIN CORE.DIM_FLIGHT f
+ON b.flightId = f.flightId
+GROUP BY f.airlineName;
+
+
+CREATE OR REPLACE DYNAMIC TABLE DT_DELAY_ANALYTICS
+TARGET_LAG = '5 minutes'
+WAREHOUSE = AVIATION_WH
+AS
+SELECT
+    flightId,
+    delayReason,
+    COUNT(alertId) AS total_delays
+FROM CORE.FACT_DELAY_ALERT
+GROUP BY flightId, delayReason;
+
+--create delay alerts
+
+CREATE OR REPLACE VIEW VW_DELAY_ALERTS AS
+SELECT
+    flightId,
+    delayReason,
+    delayDuration,
+    alertStatus
+FROM CORE.FACT_DELAY_ALERT;
+
+
+SELECT * FROM DT_REVENUE;
+SELECT * FROM DT_DELAY_ANALYTICS;
+SELECT * FROM VW_DELAY_ALERTS;

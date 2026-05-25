@@ -1,0 +1,56 @@
+USE WAREHOUSE AVIATION_WH;
+USE DATABASE AVIATION_DB;
+USE SCHEMA CORE;
+
+-- create dimension table
+
+CREATE OR REPLACE TABLE DIM_PASSENGER AS
+SELECT DISTINCT
+    passengerId,
+    passengerName,
+    passportNumber,
+    nationality,
+    passengerType
+FROM RAW.PASSENGER_RAW;
+
+
+CREATE OR REPLACE TABLE DIM_FLIGHT AS
+SELECT DISTINCT
+    flightId,
+    airlineName,
+    sourceAirport,
+    destinationAirport,
+    flightStatus
+FROM RAW.FLIGHT_RAW;
+
+
+CREATE OR REPLACE TABLE FACT_BOOKING AS
+SELECT DISTINCT
+    b.bookingId,
+    b.passengerId,
+    b.flightId,
+    b.bookingAmount,
+    b.bookingDate,
+    b.bookingStatus
+FROM RAW.BOOKING_RAW b
+JOIN RAW.FLIGHT_RAW f
+ON b.flightId = f.flightId
+WHERE b.bookingAmount > 0
+AND f.flightStatus != 'Cancelled';
+
+--fact table
+
+CREATE OR REPLACE TABLE FACT_BAGGAGE AS
+SELECT *
+FROM RAW.BAGGAGE_RAW
+WHERE baggageWeight >= 0;
+
+CREATE OR REPLACE TABLE FACT_DELAY_ALERT AS
+SELECT *
+FROM RAW.DELAY_ALERT_RAW;
+
+SELECT * FROM DIM_PASSENGER;
+SELECT * FROM DIM_FLIGHT;
+SELECT * FROM FACT_BOOKING;
+SELECT * FROM FACT_BAGGAGE;
+SELECT * FROM FACT_DELAY_ALERT;

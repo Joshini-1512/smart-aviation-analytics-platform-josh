@@ -1,0 +1,122 @@
+USE WAREHOUSE AVIATION_WH;
+USE DATABASE AVIATION_DB;
+USE SCHEMA RAW;
+
+-- file formats
+CREATE OR REPLACE FILE FORMAT CSV_FORMAT
+TYPE = CSV
+SKIP_HEADER = 1
+FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+DATE_FORMAT = 'YYYY-MM-DD'
+TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+CREATE OR REPLACE FILE FORMAT JSON_FORMAT
+TYPE = JSON;
+
+-- stages
+
+CREATE OR REPLACE STAGE S3_CSV_STAGE
+URL='s3://aviation-platform/csv/'
+CREDENTIALS=(
+AWS_KEY_ID='enter'
+AWS_SECRET_KEY='enter'
+)
+FILE_FORMAT = CSV_FORMAT;
+
+CREATE OR REPLACE STAGE S3_JSON_STAGE
+URL='s3://aviation-platform/json/'
+CREDENTIALS=(
+AWS_KEY_ID='enter'
+AWS_SECRET_KEY='enter'
+)
+FILE_FORMAT = JSON_FORMAT;
+
+--check stage
+LIST @S3_CSV_STAGE;
+LIST @S3_JSON_STAGE;
+
+--tables
+CREATE OR REPLACE TABLE PASSENGER_RAW (
+    passengerId INT,
+    passengerName STRING,
+    passportNumber STRING,
+    nationality STRING,
+    passengerType STRING
+);
+
+CREATE OR REPLACE TABLE FLIGHT_RAW (
+    flightId STRING,
+    airlineName STRING,
+    sourceAirport STRING,
+    destinationAirport STRING,
+    flightStatus STRING
+);
+
+CREATE OR REPLACE TABLE BOOKING_RAW (
+    bookingId STRING,
+    passengerId INT,
+    flightId STRING,
+    bookingAmount NUMBER(10,2),
+    bookingDate DATE,
+    bookingStatus STRING
+);
+
+CREATE OR REPLACE TABLE BAGGAGE_RAW (
+    baggageId STRING,
+    bookingId STRING,
+    baggageWeight NUMBER(10,2),
+    baggageStatus STRING,
+    checkedInAt TIMESTAMP
+);
+
+COPY INTO PASSENGER_RAW
+FROM @S3_CSV_STAGE/passenger_data.csv
+FILE_FORMAT = (FORMAT_NAME = CSV_FORMAT);
+
+COPY INTO FLIGHT_RAW
+FROM @S3_CSV_STAGE/flight_data.csv
+FILE_FORMAT = (FORMAT_NAME = CSV_FORMAT);
+
+COPY INTO BOOKING_RAW
+FROM @S3_CSV_STAGE/booking_data.csv
+FILE_FORMAT = (FORMAT_NAME = CSV_FORMAT);
+
+COPY INTO BAGGAGE_RAW
+FROM @S3_CSV_STAGE/baggage_data.csv
+FILE_FORMAT = (FORMAT_NAME = CSV_FORMAT);
+
+-- JSON TABLE
+
+CREATE OR REPLACE TABLE DELAY_ALERT_JSON_RAW (
+    raw_data VARIANT
+);
+
+CREATE OR REPLACE TABLE DELAY_ALERT_RAW (
+    alertId STRING,
+    flightId STRING,
+    delayReason STRING,
+    delayDuration STRING,
+    alertStatus STRING
+);
+
+COPY INTO DELAY_ALERT_JSON_RAW
+FROM @S3_JSON_STAGE/delay_alert_data.json
+FILE_FORMAT = (FORMAT_NAME = JSON_FORMAT);
+
+INSERT INTO DELAY_ALERT_RAW
+SELECT
+    value:alertId::STRING AS alertId,
+    value:flightId::STRING AS flightId,
+    value:delayReason::STRING AS delayReason,
+    value:delayDuration::STRING AS delayDuration,
+    value:alertStatus::STRING AS alertStatus
+FROM DELAY_ALERT_JSON_RAW,
+LATERAL FLATTEN(input => raw_data);
+
+--check
+
+SELECT COUNT(*) FROM PASSENGER_RAW;
+SELECT COUNT(*) FROM FLIGHT_RAW;
+SELECT COUNT(*) FROM BOOKING_RAW;
+SELECT COUNT(*) FROM BAGGAGE_RAW;
+SELECT COUNT(*) FROM DELAY_ALERT_RAW;

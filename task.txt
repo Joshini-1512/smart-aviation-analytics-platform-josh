@@ -1,0 +1,27 @@
+USE WAREHOUSE AVIATION_WH;
+USE DATABASE AVIATION_DB;
+USE SCHEMA CORE;
+
+--create task
+
+CREATE OR REPLACE TASK BOOKING_TASK
+WAREHOUSE = AVIATION_WH
+SCHEDULE = '5 MINUTE'
+AS
+INSERT INTO FACT_BOOKING
+SELECT
+    b.bookingId,
+    b.passengerId,
+    b.flightId,
+    b.bookingAmount,
+    b.bookingDate,
+    b.bookingStatus
+FROM BOOKING_STREAM b
+JOIN RAW.FLIGHT_RAW f
+ON b.flightId = f.flightId
+WHERE b.bookingAmount > 0
+AND f.flightStatus != 'Cancelled';
+
+ALTER TASK BOOKING_TASK RESUME;
+
+SHOW TASKS;
